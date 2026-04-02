@@ -94,4 +94,5 @@ app.get("/api/reports/:id", (req,res)=>{
 //listen for incoming requests
 app.listen(3001, () => {
     console.log("Server is running on port 3001");
+    console.log("http://localhost:3001");
 });
