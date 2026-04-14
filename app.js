@@ -128,20 +128,6 @@ app.get("/api/reports/:id", (req, res) => {
   res.send(report);
 });
 
-const validateReport = (report) => {
-  const schema = Joi.object({
-    _id: Joi.allow(""),
-    title: Joi.string().min(1).required(),
-    author: Joi.string().min(1).required(),
-    description: Joi.allow(""),
-    date: Joi.string().min(1).required(),
-    category: Joi.string().min(1).required(),
-    image: Joi.allow(""),
-  });
-
-  return schema.validate(report);
-};
-
 app.post("/api/reports", upload.single("image"), (req, res) => {
   const result = validateReport(req.body);
   console.log("POST Request Received");
@@ -170,6 +156,57 @@ app.post("/api/reports", upload.single("image"), (req, res) => {
   res.status(200).send(report);
 });
 
+app.put("/api/reports/:id", upload.single("image"), (req, res) => {
+  console.log("PUT Request Received");
+  console.log(req.body);
+
+  const report = reports.find((r) => r._id === parseInt(req.params.id));
+
+  if (!report) {
+    res.status(404).send("Report not found");
+    return;
+  }
+
+  const result = validateReport(req.body);
+  if (result.error) {
+    res.status(400).send(result.error.details[0].message);
+    return;
+  }
+
+  report.title = req.body.title;
+  report.author = req.body.author;
+  report.description = req.body.description || "";
+  report.date = req.body.date;
+  report.category = req.body.category;
+  if (req.file) {
+    report.image = req.file.filename;
+  } else {
+    report.image = req.body.image || report.image;
+  }
+
+  res.status(200).send(report);
+
+});
+
+app.delete("/api/reports/:id", (req, res) => {
+  console.log("DELETE Request Received");
+  console.log(req.params.id);
+
+  const report = reports.find((r) => r._id === parseInt(req.params.id));
+
+  if (!report) {
+    res.status(404).send("Report not found");
+    return;
+  }
+
+  const index = reports.indexOf(report);
+  reports.splice(index, 1);
+
+  res.status(200).send(report);
+});
+
+
+
 app.use((err, _req, res, _next) => {
   if (err) {
     return res.status(500).json({ error: err.message || "Internal server error" });
@@ -177,6 +214,20 @@ app.use((err, _req, res, _next) => {
 });
 
 
+
+const validateReport = (report) => {
+  const schema = Joi.object({
+    _id: Joi.allow(""),
+    title: Joi.string().min(1).required(),
+    author: Joi.string().min(1).required(),
+    description: Joi.allow(""),
+    date: Joi.string().min(1).required(),
+    category: Joi.string().min(1).required(),
+    image: Joi.allow(""),
+  });
+
+  return schema.validate(report);
+};
 
 //listen for incoming requests
 const port = process.env.PORT || 3001;
