@@ -4,6 +4,9 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const Joi = require("joi");
+const mongoose = require("mongoose");
+
+const URI = `mongodb+srv://CalebSteckler:izrRyGa4OVruDqIR@cluster0.rvj9jji.mongodb.net/?appName=Cluster0`;
 
 const app = express();
 app.use(express.static(path.join(__dirname, "public")));
@@ -40,105 +43,81 @@ const storage = multer.diskStorage({
     cb(null, file.originalname);
   },
 });
-
 const upload = multer({ storage });
 
-let reports = [
-    {
-        "_id": 1,
-        "title": "Report 1",
-        "author": "Author 1",
-        "description": "",
-        "date": "2024-01-01",
-        "category": "",
-        "image": "report-icon.png"
-    },
-    {
-        "_id": 2,
-        "title": "Report 2",
-        "author": "Author 2",
-        "description": "",
-        "date": "2024-01-01",
-        "category": "",
-        "image": "report-icon.png"
-    },
-    {
-        "_id": 3,
-        "title": "Report 3",
-        "author": "Author 3",
-        "description": "",
-        "date": "2024-01-01",
-        "category": "",
-        "image": "report-icon.png"
-    },
-    {
-        "_id": 4,
-        "title": "Report 4",
-        "author": "Author 4",
-        "description": "",
-        "date": "2024-01-01",
-        "category": "",
-        "image": "report-icon.png"
-    },
-    
-    {
-        "_id": 5,
-        "title": "Report 5",
-        "author": "Author 5",
-        "description": "",
-        "date": "2024-01-01",
-        "category": "",
-        "image": "report-icon.png"
-    },
-    {
-        "_id": 6,
-        "title": "Report 6",
-        "author": "Author 6",
-        "description": "",
-        "date": "2024-01-01",
-        "category": "",
-        "image": "report-icon.png"
-    },
-    {
-        "_id": 7,
-        "title": "Report 7",
-        "author": "Author 7",
-        "description": "",
-        "date": "2024-01-01",
-        "category": "",
-        "image": "report-icon.png"
-    },
-    {
-        "_id": 8,
-        "title": "Report 8",
-        "author": "Author 8",
-        "description": "",
-        "date": "2024-01-01",
-        "category": "",
-        "image": "report-icon.png"
-    }
-];
 
-app.get("/api/reports", (_req, res) => {
+mongoose
+  .connect(URI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((error) => console.error("Could not connect to MongoDB", error));
+
+const reportSchema = new mongoose.Schema({
+  title: String,
+  author: String,
+  description: String,
+  date: String,
+  category: String,
+  image: String,
+});
+
+const Report = mongoose.model("Report", reportSchema);
+
+app.get("/api/reports", async (_req, res) => {
+  const reports = await Report.find();
+  console.log("MONGODB GET Request Received");
   res.send(reports);
 });
 
-app.get("/api/reports/:id", (req, res) => {
-  const report = reports.find((r) => r._id === parseInt(req.params.id));
-  res.send(report);
-});
+app.get("/api/reports/:id", async (req, res) => {
+  const report = await Report.findById(req.params.id);
 
-app.post("/api/reports", upload.single("image"), (req, res) => {
-  const result = validateReport(req.body);
-  console.log("POST Request Received");
-
-  if (result.error) {
-    res.status(400).send(result.error.details[0].message);
-    return;
+  if (!report) {
+    return res.status(404).send("Report not found");
   }
 
-  const report = {
-    _id: reports.length + 1,
+  console.log("MONGODB GET Request Received");
+  return res.send(report);
+});
+
+app.post("/api/reports", upload.single("img"), async (req, res) => {
+  console.log("MONGODB POST Request Received");
+  const result = validateReport(req.body);
+
+  if (result.error) {
+    return res.status(400).send(result.error.details[0].message);
+  }
+
+  const report = new Report({
+    title: req.body.title,
+    author: req.body.author,  
+    description: req.body.description || "",
+    date: req.body.date,
+    category: req.body.category,
+    image: req.body.image || "image-not-uploaded",
+  });
+
+  if (req.file) {
+    report.image = "images/" + req.file.filename;
+  }
+
+  const newReport = await report.save();
+  return res.send(newReport);
+});
+
+app.put("/api/reports/:id", upload.single("img"), async (req, res) => {
+  console.log("MONGODB PUT Request Received");
+  const result = validateReport(req.body);
+
+  if (result.error) {
+    return res.status(400).send(result.error.details[0].message);
+  }
+
+  const report = await Report.findById(req.params.id);
+  if (!report) {
+    return res.status(404).send("Report not found");
+  }
+
+  const fieldsToUpdate = {
     title: req.body.title,
     author: req.body.author,
     description: req.body.description || "",
@@ -147,73 +126,27 @@ app.post("/api/reports", upload.single("image"), (req, res) => {
   };
 
   if (req.file) {
-    report.image = req.file.filename;
-  } else {
-    report.image = req.body.image || "image-not-uploaded";
+    fieldsToUpdate.image = "images/" + req.file.filename;
+  } else if (req.body.image) {
+    fieldsToUpdate.image = req.body.image;
   }
 
-  reports.push(report);
-  res.status(200).send(report);
+  const updatedReport = await Report.findByIdAndUpdate(req.params.id, fieldsToUpdate, {
+    new: true,
+  });
+  return res.send(updatedReport);
 });
 
-app.put("/api/reports/:id", upload.single("image"), (req, res) => {
-  console.log("PUT Request Received");
-  console.log(req.body);
+app.delete("/api/reports/:id", async (req, res) => {
+  console.log("MONGODB DELETE Request Received");
 
-  const report = reports.find((r) => r._id === parseInt(req.params.id));
-
-  if (!report) {
-    res.status(404).send("Report not found");
-    return;
+  const deletedReport = await Report.findByIdAndDelete(req.params.id);
+  if (!deletedReport) {
+    return res.status(404).send("Report not found");
   }
 
-  const result = validateReport(req.body);
-  if (result.error) {
-    res.status(400).send(result.error.details[0].message);
-    return;
-  }
-
-  report.title = req.body.title;
-  report.author = req.body.author;
-  report.description = req.body.description || "";
-  report.date = req.body.date;
-  report.category = req.body.category;
-  if (req.file) {
-    report.image = req.file.filename;
-  } else {
-    report.image = req.body.image || report.image;
-  }
-
-  res.status(200).send(report);
-
+  return res.send(deletedReport);
 });
-
-app.delete("/api/reports/:id", (req, res) => {
-  console.log("DELETE Request Received");
-  console.log(req.params.id);
-
-  const report = reports.find((r) => r._id === parseInt(req.params.id));
-
-  if (!report) {
-    res.status(404).send("Report not found");
-    return;
-  }
-
-  const index = reports.indexOf(report);
-  reports.splice(index, 1);
-
-  res.status(200).send(report);
-});
-
-
-
-app.use((err, _req, res, _next) => {
-  if (err) {
-    return res.status(500).json({ error: err.message || "Internal server error" });
-  }
-});
-
-
 
 const validateReport = (report) => {
   const schema = Joi.object({
@@ -228,6 +161,12 @@ const validateReport = (report) => {
 
   return schema.validate(report);
 };
+
+app.use((err, _req, res, _next) => {
+  if (err) {
+    return res.status(500).json({ error: err.message || "Internal server error" });
+  }
+});
 
 //listen for incoming requests
 const port = process.env.PORT || 3001;
