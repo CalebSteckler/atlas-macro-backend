@@ -79,7 +79,7 @@ app.get("/api/reports/:id", async (req, res) => {
   return res.send(report);
 });
 
-app.post("/api/reports", upload.single("img"), async (req, res) => {
+app.post("/api/reports", upload.single("image"), async (req, res) => {
   console.log("MONGODB POST Request Received");
   const result = validateReport(req.body);
 
@@ -104,7 +104,7 @@ app.post("/api/reports", upload.single("img"), async (req, res) => {
   return res.send(newReport);
 });
 
-app.put("/api/reports/:id", upload.single("img"), async (req, res) => {
+app.put("/api/reports/:id", upload.single("image"), async (req, res) => {
   console.log("MONGODB PUT Request Received");
   const result = validateReport(req.body);
 
