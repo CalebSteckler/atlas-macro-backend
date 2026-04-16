@@ -157,6 +157,7 @@ const validateReport = (report) => {
     date: Joi.string().min(1).required(),
     category: Joi.string().min(1).required(),
     image: Joi.allow(""),
+    versionKey: false,
   });
 
   return schema.validate(report);
